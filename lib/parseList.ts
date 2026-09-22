@@ -1,5 +1,6 @@
 export interface TreeNode {
   name: string;
+  description?: string;
   children?: TreeNode[];
 }
 
@@ -11,9 +12,16 @@ export interface ParseResult {
 const MAX_CHILDREN = 5;
 export const INDENT_SIZE = 2;
 
+// covers "-"/"*" (typed) plus the bullet glyphs pasted-in lists commonly use
+const BULLET_MARKER_RE = /^[-*•◦‣▪▫●○∙·]\s+/;
+
 export function indentLevel(line: string): number {
   const indent = line.length - line.trimStart().length;
   return Math.floor(indent / INDENT_SIZE);
+}
+
+export function hasBulletMarker(line: string): boolean {
+  return BULLET_MARKER_RE.test(line.trim());
 }
 
 /**
@@ -33,8 +41,11 @@ export function parseList(text: string): ParseResult {
 
   for (const line of lines) {
     const level = indentLevel(line);
-    const name = line.trim().replace(/^[-*]\s+/, '');
-    const node: TreeNode = { name, children: [] };
+    const raw = line.trim().replace(BULLET_MARKER_RE, '');
+    const sep = raw.indexOf('//');
+    const name = (sep === -1 ? raw : raw.slice(0, sep)).trim();
+    const description = sep === -1 ? undefined : raw.slice(sep + 2).trim() || undefined;
+    const node: TreeNode = { name, description, children: [] };
 
     while (stack.length > 1 && stack[stack.length - 1].level >= level) {
       stack.pop();

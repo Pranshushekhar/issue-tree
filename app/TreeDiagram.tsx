@@ -1,46 +1,130 @@
 "use client";
 
+import { useState } from "react";
 import { hierarchy, tree as d3tree } from "d3-hierarchy";
 import type { TreeNode } from "@/lib/parseList";
 import { colors } from "@/lib/colors";
 
 const NODE_H = 44;
-const H_GAP = 28;
-const V_GAP = 64;
+const H_GAP = 28; // gap between sibling rows (vertical)
+const V_GAP = 64; // gap between depth columns (horizontal)
 const PADDING = 32;
 const CHAR_W = 8;
 const NODE_W_MIN = 64;
 
-function nodeWidth(name: string) {
-  return Math.max(NODE_W_MIN, name.length * CHAR_W + 32);
+const CARD_W = 240;
+const CARD_PAD = 14;
+const TITLE_SIZE = 14;
+const DESC_SIZE = 12;
+const DESC_LINE_H = 16;
+const TITLE_GAP = 6;
+// avg glyph width for the SVG's inherited sans-serif font, used to wrap description text
+const DESC_CHAR_W = DESC_SIZE * 0.52;
+const CARD_MAX_CHARS = Math.floor((CARD_W - CARD_PAD * 2) / DESC_CHAR_W);
+
+// room reserved on the right edge of a node for its collapse chevron
+const CHEVRON_SPACE = 22;
+
+function nodeWidth(name: string, hasChildren: boolean) {
+  return Math.max(NODE_W_MIN, name.length * CHAR_W + 32 + (hasChildren ? CHEVRON_SPACE : 0));
 }
 
-// Smooth vertical S-curve between a parent's bottom edge and a child's top edge.
+// A node with children is visible by default only at depth 0 (root) and starts
+// collapsed everywhere deeper, so the initial view is root + first layer only.
+// `toggled` holds paths the user has flipped away from that default.
+interface VisibleNode {
+  name: string;
+  description?: string;
+  hasChildren: boolean;
+  collapsed: boolean;
+  path: string;
+  children?: VisibleNode[];
+}
+
+function buildVisibleTree(node: TreeNode, path: string, depth: number, toggled: Set<string>): VisibleNode {
+  const hasChildren = !!node.children?.length;
+  const collapsedByDefault = depth >= 1;
+  const collapsed = hasChildren && (toggled.has(path) ? !collapsedByDefault : collapsedByDefault);
+  return {
+    name: node.name,
+    description: node.description,
+    hasChildren,
+    collapsed,
+    path,
+    children:
+      hasChildren && !collapsed
+        ? node.children!.map((c, i) => buildVisibleTree(c, `${path}-${i}`, depth + 1, toggled))
+        : undefined,
+  };
+}
+
+function wrapText(text: string, maxChars: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// Smooth horizontal S-curve between a parent's right edge and a child's left edge.
 function linkPath(x1: number, y1: number, x2: number, y2: number) {
-  const midY = (y1 + y2) / 2;
-  return `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
+  const midX = (x1 + x2) / 2;
+  return `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
 }
 
 export function TreeDiagram({ root }: { root: TreeNode }) {
-  const h = hierarchy(root, (d) => d.children);
-  const maxWidth = Math.max(...h.descendants().map((n) => nodeWidth(n.data.name)));
-  d3tree<TreeNode>().nodeSize([maxWidth + H_GAP, NODE_H + V_GAP])(h);
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [toggled, setToggled] = useState<Set<string>>(() => new Set());
+  const toggleCollapse = (path: string) =>
+    setToggled((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+
+  const visibleRoot = buildVisibleTree(root, "root", 0, toggled);
+  const h = hierarchy(visibleRoot, (d) => d.children);
+  const maxWidth = Math.max(...h.descendants().map((n) => nodeWidth(n.data.name, n.data.hasChildren)));
+  // Left-to-right tree: breadth axis (x) stacks siblings vertically, depth axis (y)
+  // runs across columns, so a wide level grows down the screen instead of off the side.
+  d3tree<VisibleNode>().nodeSize([NODE_H + H_GAP, maxWidth + V_GAP])(h);
 
   const nodes = h.descendants();
-  const xs = nodes.map((n) => n.x!);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const offsetX = PADDING + maxWidth / 2 - minX;
-  const width = maxX - minX + maxWidth + PADDING * 2;
-  const height = h.height * (NODE_H + V_GAP) + NODE_H + PADDING * 2;
+  const rows = nodes.map((n) => n.x!);
+  const minRow = Math.min(...rows);
+  const maxRow = Math.max(...rows);
+  const offsetX = PADDING;
+  const offsetY = PADDING + NODE_H / 2 - minRow;
+  const width = h.height * (maxWidth + V_GAP) + maxWidth + PADDING * 2;
+  const height = maxRow - minRow + NODE_H + PADDING * 2;
+
+  const cards = nodes.map((n) => {
+    const lines = n.data.description ? wrapText(n.data.description, CARD_MAX_CHARS) : [];
+    const w = nodeWidth(n.data.name, n.data.hasChildren);
+    const cardH = lines.length
+      ? Math.max(NODE_H, CARD_PAD * 2 + TITLE_SIZE + TITLE_GAP + lines.length * DESC_LINE_H)
+      : NODE_H;
+    // the card is a popover over the node, so it can never be smaller than the node itself
+    return { lines, cardW: lines.length ? Math.max(w, CARD_W) : w, cardH };
+  });
 
   return (
-    <svg width={width} height={height} fontFamily="inherit">
+    <svg width={width} height={height} fontFamily="inherit" style={{ overflow: "visible" }}>
       {h.links().map((link, i) => {
-        const x1 = link.source.x! + offsetX;
-        const y1 = link.source.y! + NODE_H + PADDING;
-        const x2 = link.target.x! + offsetX;
-        const y2 = link.target.y! + PADDING;
+        const x1 = link.source.y! + offsetX + nodeWidth(link.source.data.name, link.source.data.hasChildren);
+        const y1 = link.source.x! + offsetY;
+        const x2 = link.target.y! + offsetX;
+        const y2 = link.target.x! + offsetY;
         return (
           <path
             key={i}
@@ -52,9 +136,21 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
         );
       })}
       {nodes.map((n, i) => {
-        const w = nodeWidth(n.data.name);
+        const w = nodeWidth(n.data.name, n.data.hasChildren);
+        // hover hit-zone matches the expanded card size so leaving the compact
+        // rect but staying inside the card's visual bounds doesn't collapse it
+        const { cardW, cardH } = cards[i];
+        const hoverW = Math.max(w, cardW);
+        const hoverH = Math.max(NODE_H, cardH);
         return (
-          <g key={i} transform={`translate(${n.x! + offsetX - w / 2}, ${n.y! + PADDING})`}>
+          <g
+            key={i}
+            transform={`translate(${n.y! + offsetX}, ${n.x! + offsetY - NODE_H / 2})`}
+            onMouseEnter={() => n.data.description && setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{ cursor: n.data.description ? "pointer" : "default" }}
+          >
+            <rect x={w / 2 - hoverW / 2} y={NODE_H / 2 - hoverH / 2} width={hoverW} height={hoverH} fill="transparent" />
             <rect
               width={w}
               height={NODE_H}
@@ -64,7 +160,7 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
               strokeWidth={1}
             />
             <text
-              x={w / 2}
+              x={n.data.hasChildren ? (w - CHEVRON_SPACE) / 2 : w / 2}
               y={NODE_H / 2}
               fill={colors.textOnPrimary}
               textAnchor="middle"
@@ -74,6 +170,102 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
             >
               {n.data.name}
             </text>
+          </g>
+        );
+      })}
+      {nodes.map((n, i) => {
+        const { lines, cardW, cardH } = cards[i];
+        if (!lines.length) return null;
+        const w = nodeWidth(n.data.name, n.data.hasChildren);
+        const cx = w / 2;
+        const cy = NODE_H / 2;
+        const top = cy - cardH / 2;
+        const isHovered = hovered === i;
+        return (
+          <g
+            key={`card-${i}`}
+            transform={`translate(${n.y! + offsetX}, ${n.x! + offsetY - NODE_H / 2})`}
+            style={{ pointerEvents: "none" }}
+          >
+            <g
+              style={{
+                opacity: isHovered ? 1 : 0,
+                transform: isHovered ? "scale(1)" : "scale(0.92)",
+                transformBox: "fill-box",
+                transformOrigin: "center",
+                transition: "opacity 140ms ease, transform 140ms ease",
+              }}
+            >
+              <rect
+                x={cx - cardW / 2}
+                y={top}
+                width={cardW}
+                height={cardH}
+                rx={10}
+                fill={colors.surface}
+                stroke={colors.primary}
+                strokeWidth={1.5}
+              />
+              <text
+                x={cx}
+                y={top + CARD_PAD + TITLE_SIZE / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={TITLE_SIZE}
+                fontWeight={600}
+                fill={colors.textPrimary}
+              >
+                {n.data.name}
+              </text>
+              {lines.map((line, li) => (
+                <text
+                  key={li}
+                  x={cx}
+                  y={top + CARD_PAD + TITLE_SIZE + TITLE_GAP + li * DESC_LINE_H + DESC_LINE_H / 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={DESC_SIZE}
+                  fill={colors.textSecondary}
+                >
+                  {line}
+                </text>
+              ))}
+            </g>
+          </g>
+        );
+      })}
+      {nodes.map((n, i) => {
+        if (!n.data.hasChildren) return null;
+        const w = nodeWidth(n.data.name, n.data.hasChildren);
+        // rendered as its own top-level pass (after the hover card) so it stays
+        // visible and clickable even while the card is covering the node
+        return (
+          <g
+            key={`chevron-${i}`}
+            transform={`translate(${n.y! + offsetX + w - CHEVRON_SPACE / 2 - 2}, ${n.x! + offsetY})`}
+            onClick={() => toggleCollapse(n.data.path)}
+            onMouseEnter={() => n.data.description && setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{ cursor: "pointer" }}
+          >
+            <rect x={-11} y={-11} width={22} height={22} fill="transparent" />
+            {/* solid badge backdrop keeps the chevron visible whether it's sitting
+                on the node pill or on top of the (white) hover card */}
+            <circle r={9} fill={n.depth === 0 ? colors.primaryDark : colors.primary} stroke={colors.surface} strokeWidth={1.5} />
+            <path
+              // right-pointing chevron: matches the tree's left-to-right growth
+              d="M-2,-4 L2,0 L-2,4"
+              fill="none"
+              stroke={colors.textOnPrimary}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: n.data.collapsed ? "rotate(0deg)" : "rotate(180deg)",
+                transformOrigin: "0px 0px",
+                transition: "transform 150ms ease",
+              }}
+            />
           </g>
         );
       })}

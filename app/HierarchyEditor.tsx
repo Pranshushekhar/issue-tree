@@ -2,12 +2,12 @@
 
 import { useRef, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
-import { indentLevel, INDENT_SIZE } from "@/lib/parseList";
+import { indentLevel, hasBulletMarker, INDENT_SIZE } from "@/lib/parseList";
 import { colors } from "@/lib/colors";
 
 const LINE_H = 20;
 const PAD = 12;
-const FONT = "var(--font-geist-mono), monospace";
+const FONT = "inherit"; // sans-serif, matches the app's body font
 
 function currentLineBounds(value: string, pos: number) {
   const start = value.lastIndexOf("\n", pos - 1) + 1;
@@ -30,6 +30,7 @@ export function HierarchyEditor({
   const syncScroll = () => {
     if (taRef.current && overlayRef.current) {
       overlayRef.current.scrollTop = taRef.current.scrollTop;
+      overlayRef.current.scrollLeft = taRef.current.scrollLeft;
     }
   };
 
@@ -66,12 +67,13 @@ export function HierarchyEditor({
   };
 
   return (
-    <div style={{ display: "grid" }}>
+    <div style={{ position: "relative" }}>
       <div
         ref={overlayRef}
         aria-hidden
         style={{
-          gridArea: "1 / 1",
+          position: "absolute",
+          inset: 0,
           overflow: "hidden",
           pointerEvents: "none",
           padding: PAD,
@@ -85,16 +87,17 @@ export function HierarchyEditor({
         {lines.map((line, i) => {
           const level = indentLevel(line);
           const hasContent = line.trim().length > 0;
+          // leading spaces (not CSS padding) so the dot lines up with the text
+          // regardless of font metrics
+          const indentStr = " ".repeat(Math.max(0, level * INDENT_SIZE - 1));
+          // skip our own dot when the line already carries a typed/pasted bullet
+          // marker ("-", "*", "•", ...) so pasted lists don't show two bullets
+          const showDot = level > 0 && !hasBulletMarker(line);
           return (
             <div key={i} style={{ height: LINE_H }}>
-              {level > 0 && (
-                <span
-                  style={{
-                    paddingLeft: `${Math.max(0, level * INDENT_SIZE - 1)}ch`,
-                    color: hasContent ? colors.primary : colors.border,
-                  }}
-                >
-                  •
+              {showDot && (
+                <span style={{ color: hasContent ? colors.primary : colors.border }}>
+                  {indentStr}•
                 </span>
               )}
             </div>
@@ -108,9 +111,9 @@ export function HierarchyEditor({
         onKeyDown={handleKeyDown}
         onScroll={syncScroll}
         spellCheck={false}
-        className="indent-guides"
+        wrap="off"
         style={{
-          gridArea: "1 / 1",
+          position: "relative",
           background: "transparent",
           resize: "vertical",
           padding: PAD,
@@ -118,10 +121,13 @@ export function HierarchyEditor({
           fontSize: 13,
           lineHeight: `${LINE_H}px`,
           height: 18 * LINE_H + PAD * 2,
+          width: "100%",
           border: `1px solid ${colors.border}`,
           borderRadius: 8,
           color: colors.textPrimary,
           outline: "none",
+          whiteSpace: "pre",
+          overflowX: "auto",
         }}
       />
     </div>
