@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Splitter, Typography, message } from "antd";
 import { parseList } from "@/lib/parseList";
 import { getHistory, saveToHistory } from "@/lib/history";
-import { TreeDiagram } from "./TreeDiagram";
 import { HierarchyEditor } from "./HierarchyEditor";
 import { Header } from "./Header";
+import { TreePanel } from "./TreePanel";
 import { colors } from "@/lib/colors";
 
 const { Text } = Typography;
@@ -75,16 +75,8 @@ export default function Home() {
               <Alert key={w} title={w} type="warning" showIcon />
             ))}
           </Splitter.Panel>
-          <Splitter.Panel style={{ overflow: "auto", display: "flex" }}>
-            {tree ? (
-              <div style={{ margin: "auto", padding: 32 }}>
-                <TreeDiagram root={tree} />
-              </div>
-            ) : (
-              <Text type="secondary" style={{ margin: "auto" }}>
-                Nothing to show yet.
-              </Text>
-            )}
+          <Splitter.Panel style={{ display: "flex" }}>
+            <TreePanel tree={tree} />
           </Splitter.Panel>
         </Splitter>
       </div>

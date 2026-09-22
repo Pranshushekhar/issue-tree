@@ -28,7 +28,7 @@ export function Header({ onSave }: { onSave?: () => void }) {
       }}
     >
       <Title level={5} style={{ color: colors.primary, margin: 0 }}>
-        Tree Visualizer
+        Issue Tree Visualizer
       </Title>
       <nav style={{ display: "flex", gap: 4 }}>
         {TABS.map((tab) => {
