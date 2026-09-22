@@ -42,6 +42,12 @@ export function getHistoryServerSnapshot() {
   return EMPTY;
 }
 
+function commit(next: HistoryEntry[]) {
+  localStorage.setItem(KEY, JSON.stringify(next));
+  cache = next;
+  listeners.forEach((onChange) => onChange());
+}
+
 export function saveToHistory(text: string): HistoryEntry {
   const { tree } = parseList(text);
   const entry: HistoryEntry = {
@@ -50,8 +56,22 @@ export function saveToHistory(text: string): HistoryEntry {
     text,
     savedAt: new Date().toISOString(),
   };
-  localStorage.setItem(KEY, JSON.stringify([entry, ...readHistory()]));
-  cache = readHistory();
-  listeners.forEach((onChange) => onChange());
+  commit([entry, ...readHistory()]);
   return entry;
+}
+
+// overwrites an existing entry in place (used when saving changes to a tree
+// that was loaded from history, rather than always creating a new entry)
+export function updateHistory(id: string, text: string): HistoryEntry | null {
+  const history = readHistory();
+  const existing = history.find((e) => e.id === id);
+  if (!existing) return null;
+  const { tree } = parseList(text);
+  const updated: HistoryEntry = { ...existing, text, name: tree?.name || "Untitled", savedAt: new Date().toISOString() };
+  commit([updated, ...history.filter((e) => e.id !== id)]);
+  return updated;
+}
+
+export function deleteFromHistory(id: string) {
+  commit(readHistory().filter((e) => e.id !== id));
 }

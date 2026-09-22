@@ -2,17 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Typography } from "antd";
+import { Button, Popconfirm, Typography } from "antd";
 import { colors } from "@/lib/colors";
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const TABS = [
   { href: "/", label: "Editor" },
   { href: "/history", label: "History" },
 ] as const;
 
-export function Header({ onSave }: { onSave?: () => void }) {
+export type DocStatus = { mode: "new" } | { mode: "editing"; name: string };
+
+export function Header({
+  onSave,
+  onNew,
+  status,
+}: {
+  onSave?: () => void;
+  onNew?: () => void;
+  status?: DocStatus;
+}) {
   const pathname = usePathname();
 
   return (
@@ -51,10 +61,36 @@ export function Header({ onSave }: { onSave?: () => void }) {
           );
         })}
       </nav>
-      {onSave && (
-        <Button type="primary" onClick={onSave} style={{ marginLeft: "auto" }}>
-          Save
-        </Button>
+      {(status || onSave || onNew) && (
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+          {status && (
+            <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+              {status.mode === "new" ? (
+                "New Issue Tree"
+              ) : (
+                <>
+                  Editing: <Text strong style={{ color: colors.textPrimary }}>{status.name}</Text>
+                </>
+              )}
+            </Text>
+          )}
+          {onNew && (
+            <Popconfirm
+              title="Start a new issue tree?"
+              description="Any unsaved changes will be lost."
+              okText="Start new"
+              okButtonProps={{ danger: true }}
+              onConfirm={onNew}
+            >
+              <Button>New</Button>
+            </Popconfirm>
+          )}
+          {onSave && (
+            <Button type="primary" onClick={onSave}>
+              Save
+            </Button>
+          )}
+        </div>
       )}
     </header>
   );

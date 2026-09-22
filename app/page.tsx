@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Splitter, Typography, message } from "antd";
 import { parseList } from "@/lib/parseList";
-import { getHistory, saveToHistory } from "@/lib/history";
+import { getHistory, saveToHistory, updateHistory, type HistoryEntry } from "@/lib/history";
 import { HierarchyEditor } from "./HierarchyEditor";
 import { Header } from "./Header";
 import { TreePanel } from "./TreePanel";
@@ -20,7 +20,7 @@ const PLACEHOLDER = `Root
     Leaf 3`;
 
 // useSearchParams needs a Suspense boundary or the production build fails
-function LoadFromHistory({ onLoad }: { onLoad: (text: string) => void }) {
+function LoadFromHistory({ onLoad }: { onLoad: (entry: HistoryEntry) => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
@@ -28,7 +28,7 @@ function LoadFromHistory({ onLoad }: { onLoad: (text: string) => void }) {
   useEffect(() => {
     if (!loadId) return;
     const entry = getHistory().find((e) => e.id === loadId);
-    if (entry) onLoad(entry.text);
+    if (entry) onLoad(entry);
     router.replace("/");
   }, [loadId, onLoad, router]);
 
@@ -37,19 +37,36 @@ function LoadFromHistory({ onLoad }: { onLoad: (text: string) => void }) {
 
 export default function Home() {
   const [text, setText] = useState(PLACEHOLDER);
+  // null = editing an unsaved "New Issue Tree"; set once loaded from or saved to history
+  const [current, setCurrent] = useState<{ id: string; name: string } | null>(null);
   const { tree, warnings } = useMemo(() => parseList(text), [text]);
 
+  const handleLoad = useCallback((entry: HistoryEntry) => {
+    setText(entry.text);
+    setCurrent({ id: entry.id, name: entry.name });
+  }, []);
+
   const handleSave = () => {
-    saveToHistory(text);
-    message.success("Saved to history");
+    const entry = current ? updateHistory(current.id, text) : saveToHistory(text);
+    if (entry) setCurrent({ id: entry.id, name: entry.name });
+    message.success("Saved");
+  };
+
+  const handleNew = () => {
+    setText(PLACEHOLDER);
+    setCurrent(null);
   };
 
   return (
     <main style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <Suspense fallback={null}>
-        <LoadFromHistory onLoad={setText} />
+        <LoadFromHistory onLoad={handleLoad} />
       </Suspense>
-      <Header onSave={handleSave} />
+      <Header
+        status={current ? { mode: "editing", name: current.name } : { mode: "new" }}
+        onNew={handleNew}
+        onSave={handleSave}
+      />
       <div style={{ flex: 1, minHeight: 0 }}>
         <Splitter style={{ height: "100%" }}>
           <Splitter.Panel

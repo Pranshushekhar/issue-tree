@@ -2,9 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Typography } from "antd";
+import { Button, Popconfirm, Typography } from "antd";
 import { Header } from "../Header";
-import { subscribeHistory, getHistorySnapshot, getHistoryServerSnapshot } from "@/lib/history";
+import { subscribeHistory, getHistorySnapshot, getHistoryServerSnapshot, deleteFromHistory } from "@/lib/history";
 import { colors } from "@/lib/colors";
 
 const { Text } = Typography;
@@ -21,26 +21,39 @@ export default function HistoryPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 640 }}>
             {entries.map((entry) => (
-              <Link
+              <div
                 key={entry.id}
-                href={`/?load=${entry.id}`}
                 style={{
-                  display: "block",
-                  padding: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                   border: `1px solid ${colors.border}`,
                   borderRadius: 8,
                   background: colors.surface,
                 }}
               >
-                <Text strong style={{ color: colors.textPrimary }}>
-                  {entry.name}
-                </Text>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {new Date(entry.savedAt).toLocaleString()}
+                <Link href={`/?load=${entry.id}`} style={{ display: "block", flex: 1, padding: 16 }}>
+                  <Text strong style={{ color: colors.textPrimary }}>
+                    {entry.name}
                   </Text>
-                </div>
-              </Link>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {new Date(entry.savedAt).toLocaleString()}
+                    </Text>
+                  </div>
+                </Link>
+                <Popconfirm
+                  title="Delete this issue tree?"
+                  description="This can't be undone."
+                  okText="Delete"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => deleteFromHistory(entry.id)}
+                >
+                  <Button danger type="text" style={{ marginRight: 8 }}>
+                    Delete
+                  </Button>
+                </Popconfirm>
+              </div>
             ))}
           </div>
         )}
