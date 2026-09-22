@@ -24,6 +24,8 @@ const CARD_MAX_CHARS = Math.floor((CARD_W - CARD_PAD * 2) / DESC_CHAR_W);
 
 // room reserved on the right edge of a node for its collapse chevron
 const CHEVRON_SPACE = 22;
+// strip at the bottom reserved for the depth-number ruler
+const LAYER_LABEL_H = 26;
 
 function nodeWidth(name: string, hasChildren: boolean) {
   return Math.max(NODE_W_MIN, name.length * CHAR_W + 32 + (hasChildren ? CHEVRON_SPACE : 0));
@@ -106,7 +108,9 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
   const offsetX = PADDING;
   const offsetY = PADDING + NODE_H / 2 - minRow;
   const width = h.height * (maxWidth + V_GAP) + maxWidth + PADDING * 2;
-  const height = maxRow - minRow + NODE_H + PADDING * 2;
+  const treeHeight = maxRow - minRow + NODE_H + PADDING * 2;
+  const height = treeHeight + LAYER_LABEL_H;
+  const colStep = maxWidth + V_GAP;
 
   const cards = nodes.map((n) => {
     const lines = n.data.description ? wrapText(n.data.description, CARD_MAX_CHARS) : [];
@@ -120,6 +124,26 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
 
   return (
     <svg width={width} height={height} fontFamily="inherit" style={{ overflow: "visible" }}>
+      {Array.from({ length: h.height }, (_, d) => {
+        const x = offsetX + (d + 1) * colStep - V_GAP / 2;
+        return <line key={`divider-${d}`} x1={x} y1={0} x2={x} y2={treeHeight} stroke={colors.border} strokeWidth={1} />;
+      })}
+      {Array.from({ length: h.height + 1 }, (_, d) => {
+        const x = offsetX + d * colStep + maxWidth / 2;
+        return (
+          <text
+            key={`depth-label-${d}`}
+            x={x}
+            y={treeHeight + LAYER_LABEL_H / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={11}
+            fill={colors.textSecondary}
+          >
+            {d}
+          </text>
+        );
+      })}
       {h.links().map((link, i) => {
         const x1 = link.source.y! + offsetX + nodeWidth(link.source.data.name, link.source.data.hasChildren);
         const y1 = link.source.x! + offsetY;
@@ -148,7 +172,8 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
             transform={`translate(${n.y! + offsetX}, ${n.x! + offsetY - NODE_H / 2})`}
             onMouseEnter={() => n.data.description && setHovered(i)}
             onMouseLeave={() => setHovered(null)}
-            style={{ cursor: n.data.description ? "pointer" : "default" }}
+            onClick={() => n.data.hasChildren && toggleCollapse(n.data.path)}
+            style={{ cursor: n.data.description || n.data.hasChildren ? "pointer" : "default" }}
           >
             <rect x={w / 2 - hoverW / 2} y={NODE_H / 2 - hoverH / 2} width={hoverW} height={hoverH} fill="transparent" />
             <rect
