@@ -1,69 +1,74 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useMemo, useState } from "react";
+import { Alert, Typography } from "antd";
+import { parseList } from "@/lib/parseList";
+import { TreeDiagram } from "./TreeDiagram";
+import { HierarchyEditor } from "./HierarchyEditor";
+import { colors } from "@/lib/colors";
+
+const { Title, Text } = Typography;
+
+const PLACEHOLDER = `Root
+  Branch A
+    Leaf 1
+    Leaf 2
+  Branch B
+    Leaf 3`;
 
 export default function Home() {
+  const [text, setText] = useState(PLACEHOLDER);
+  const { tree, warnings } = useMemo(() => parseList(text), [text]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main
+      style={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
+      <aside
+        style={{
+          width: 320,
+          flexShrink: 0,
+          padding: 24,
+          overflow: "auto",
+          borderRight: `1px solid ${colors.border}`,
+          background: colors.surface,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        <Title level={4} style={{ color: colors.primary, margin: 0 }}>
+          Tree Visualizer
+        </Title>
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          Indented list, 2 spaces per level. Tabs and - or * markers work too.
+        </Text>
+        <HierarchyEditor value={text} onChange={setText} />
+        {warnings.map((w) => (
+          <Alert key={w} title={w} type="warning" showIcon />
+        ))}
+      </aside>
+      <section
+        style={{
+          flex: 1,
+          overflow: "auto",
+          display: "flex",
+        }}
+      >
+        {tree ? (
+          <div style={{ margin: "auto", padding: 32 }}>
+            <TreeDiagram root={tree} />
+          </div>
+        ) : (
+          <Text type="secondary" style={{ margin: "auto" }}>
+            Nothing to show yet.
+          </Text>
+        )}
+      </section>
+    </main>
   );
 }

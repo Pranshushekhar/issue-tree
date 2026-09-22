@@ -1,13 +1,8 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f7eef1;
+  --foreground: #3d0f20;
+  --border: #e3cdd4;
+  --primary: #7a1f3d;
 }
 
 html {
@@ -42,8 +37,15 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* Vertical guide lines every 2 characters, matching parseList's indent size,
+   so nesting is visible while typing without a custom editor. */
+.indent-guides {
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(2ch - 1px),
+    rgba(122, 31, 61, 0.18) calc(2ch - 1px),
+    rgba(122, 31, 61, 0.18) 2ch
+  );
+  background-attachment: local;
 }
