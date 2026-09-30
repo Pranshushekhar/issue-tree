@@ -10,12 +10,15 @@ async function login(formData: FormData) {
   if (typeof password !== "string" || !expected || password !== expected) {
     redirect("/login?error=1");
   }
+  // fixed 30 min from login, not sliding on activity (sliding would need a
+  // proxy/middleware to refresh the cookie on every request, which we're
+  // avoiding for Amplify compatibility reasons)
   (await cookies()).set("auth", hashPassword(expected), {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 30,
   });
   redirect("/");
 }
