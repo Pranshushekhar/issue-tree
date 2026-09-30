@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Button, Popconfirm, Typography } from "antd";
-import { Header } from "../Header";
+import { Header } from "../../Header";
 import { subscribeHistory, getHistorySnapshot, getHistoryServerSnapshot, deleteFromHistory } from "@/lib/history";
 import { colors } from "@/lib/colors";
 

@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Splitter, Typography, message } from "antd";
 import { parseList } from "@/lib/parseList";
 import { getHistory, saveToHistory, updateHistory, type HistoryEntry } from "@/lib/history";
-import { HierarchyEditor } from "./HierarchyEditor";
-import { Header } from "./Header";
-import { TreePanel } from "./TreePanel";
+import { HierarchyEditor } from "../HierarchyEditor";
+import { Header } from "../Header";
+import { TreePanel } from "../TreePanel";
 import { colors } from "@/lib/colors";
 
 const { Text } = Typography;
