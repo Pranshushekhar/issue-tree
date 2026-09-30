@@ -38,7 +38,7 @@ export function Header({
       }}
     >
       <Title level={5} style={{ color: colors.primary, margin: 0 }}>
-        Issue Tree Visualizer
+        Tree Visualizer
       </Title>
       <nav style={{ display: "flex", gap: 4 }}>
         {TABS.map((tab) => {
