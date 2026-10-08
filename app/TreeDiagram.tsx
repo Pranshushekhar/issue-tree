@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hierarchy, tree as d3tree } from "d3-hierarchy";
 import type { TreeNode } from "@/lib/parseList";
 import { colors } from "@/lib/colors";
@@ -84,15 +84,28 @@ function linkPath(x1: number, y1: number, x2: number, y2: number) {
 }
 
 export function TreeDiagram({ root }: { root: TreeNode }) {
+  const svgRef = useRef<SVGSVGElement>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [toggled, setToggled] = useState<Set<string>>(() => new Set());
-  const toggleCollapse = (path: string) =>
+  const [justExpanded, setJustExpanded] = useState<string | null>(null);
+
+  const handleToggle = (n: { data: { path: string; collapsed: boolean } }) => {
+    setJustExpanded(n.data.collapsed ? n.data.path : null);
     setToggled((prev) => {
       const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
+      if (next.has(n.data.path)) next.delete(n.data.path);
+      else next.add(n.data.path);
       return next;
     });
+  };
+
+  // scroll the newly revealed first child into view horizontally once it's rendered
+  useEffect(() => {
+    if (!justExpanded) return;
+    const firstChild = svgRef.current?.querySelector(`[data-path="${justExpanded}-0"]`);
+    firstChild?.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
+    setJustExpanded(null);
+  }, [justExpanded, toggled]);
 
   const visibleRoot = buildVisibleTree(root, "root", 0, toggled);
   const h = hierarchy(visibleRoot, (d) => d.children);
@@ -123,7 +136,7 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
   });
 
   return (
-    <svg width={width} height={height} fontFamily="inherit" style={{ overflow: "visible" }}>
+    <svg ref={svgRef} width={width} height={height} fontFamily="inherit" style={{ overflow: "visible" }}>
       {Array.from({ length: h.height }, (_, d) => {
         const x = offsetX + (d + 1) * colStep - V_GAP / 2;
         return <line key={`divider-${d}`} x1={x} y1={0} x2={x} y2={treeHeight} stroke={colors.border} strokeWidth={1} />;
@@ -169,10 +182,11 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
         return (
           <g
             key={i}
+            data-path={n.data.path}
             transform={`translate(${n.y! + offsetX}, ${n.x! + offsetY - NODE_H / 2})`}
             onMouseEnter={() => n.data.description && setHovered(i)}
             onMouseLeave={() => setHovered(null)}
-            onClick={() => n.data.hasChildren && toggleCollapse(n.data.path)}
+            onClick={() => n.data.hasChildren && handleToggle(n)}
             style={{ cursor: n.data.description || n.data.hasChildren ? "pointer" : "default" }}
           >
             <rect x={w / 2 - hoverW / 2} y={NODE_H / 2 - hoverH / 2} width={hoverW} height={hoverH} fill="transparent" />
@@ -268,7 +282,7 @@ export function TreeDiagram({ root }: { root: TreeNode }) {
           <g
             key={`chevron-${i}`}
             transform={`translate(${n.y! + offsetX + w - CHEVRON_SPACE / 2 - 2}, ${n.x! + offsetY})`}
-            onClick={() => toggleCollapse(n.data.path)}
+            onClick={() => handleToggle(n)}
             onMouseEnter={() => n.data.description && setHovered(i)}
             onMouseLeave={() => setHovered(null)}
             style={{ cursor: "pointer" }}

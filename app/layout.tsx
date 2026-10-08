@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
-import { ConfigProvider } from "antd";
+import { App, ConfigProvider } from "antd";
 import { colors } from "@/lib/colors";
 import "./globals.css";
 
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               },
             }}
           >
-            {children}
+            <App>{children}</App>
           </ConfigProvider>
         </AntdRegistry>
       </body>

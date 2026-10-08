@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Alert, Splitter, Typography, message } from "antd";
+import { Alert, App, Splitter, Typography } from "antd";
 import { parseList } from "@/lib/parseList";
 import { getHistory, saveToHistory, updateHistory, type HistoryEntry } from "@/lib/history";
 import { HierarchyEditor } from "../HierarchyEditor";
@@ -36,6 +36,7 @@ function LoadFromHistory({ onLoad }: { onLoad: (entry: HistoryEntry) => void }) 
 }
 
 export default function Home() {
+  const { message } = App.useApp();
   const [text, setText] = useState(PLACEHOLDER);
   // null = editing an unsaved "New Issue Tree"; set once loaded from or saved to history
   const [current, setCurrent] = useState<{ id: string; name: string } | null>(null);
