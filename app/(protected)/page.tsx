@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, App, Splitter, Typography } from "antd";
 import { parseList } from "@/lib/parseList";
@@ -40,23 +40,49 @@ export default function Home() {
   const [text, setText] = useState(PLACEHOLDER);
   // null = editing an unsaved "New Issue Tree"; set once loaded from or saved to history
   const [current, setCurrent] = useState<{ id: string; name: string } | null>(null);
+  const [autosavedAt, setAutosavedAt] = useState<Date | undefined>(undefined);
   const { tree, warnings } = useMemo(() => parseList(text), [text]);
+  // tracks the text as of the last save (manual or auto) so autosave doesn't
+  // fire right after a load, and doesn't re-save unchanged text
+  const lastSavedText = useRef(text);
 
   const handleLoad = useCallback((entry: HistoryEntry) => {
     setText(entry.text);
     setCurrent({ id: entry.id, name: entry.name });
+    lastSavedText.current = entry.text;
+    setAutosavedAt(undefined);
   }, []);
 
   const handleSave = () => {
     const entry = current ? updateHistory(current.id, text) : saveToHistory(text);
-    if (entry) setCurrent({ id: entry.id, name: entry.name });
+    if (entry) {
+      setCurrent({ id: entry.id, name: entry.name });
+      lastSavedText.current = text;
+    }
     message.success("Saved");
   };
 
   const handleNew = () => {
     setText(PLACEHOLDER);
     setCurrent(null);
+    lastSavedText.current = PLACEHOLDER;
+    setAutosavedAt(undefined);
   };
+
+  // autosave: once a tree has been saved at least once (current is set),
+  // further edits save themselves; a brand new, never-saved tree still
+  // requires the explicit first Save click
+  useEffect(() => {
+    if (!current || text === lastSavedText.current) return;
+    const timeout = setTimeout(() => {
+      const entry = updateHistory(current.id, text);
+      if (entry) {
+        lastSavedText.current = text;
+        setAutosavedAt(new Date());
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [text, current]);
 
   return (
     <main style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -64,7 +90,7 @@ export default function Home() {
         <LoadFromHistory onLoad={handleLoad} />
       </Suspense>
       <Header
-        status={current ? { mode: "editing", name: current.name } : { mode: "new" }}
+        status={current ? { mode: "editing", name: current.name, autosavedAt } : { mode: "new" }}
         onNew={handleNew}
         onSave={handleSave}
       />

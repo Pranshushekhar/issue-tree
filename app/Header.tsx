@@ -12,7 +12,7 @@ const TABS = [
   { href: "/history", label: "History" },
 ] as const;
 
-export type DocStatus = { mode: "new" } | { mode: "editing"; name: string };
+export type DocStatus = { mode: "new" } | { mode: "editing"; name: string; autosavedAt?: Date };
 
 export function Header({
   onSave,
@@ -70,6 +70,7 @@ export function Header({
               ) : (
                 <>
                   Editing: <Text strong style={{ color: colors.textPrimary }}>{status.name}</Text>
+                  {status.autosavedAt && ` · Autosaved at ${status.autosavedAt.toLocaleTimeString()}`}
                 </>
               )}
             </Text>
